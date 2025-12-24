@@ -8,8 +8,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Servir les fichiers statiques (mets ton index.html dans /public)
-app.use(express.static(path.join(__dirname, 'public')));
+// Servir les fichiers statiques depuis la racine du projet
+app.use(express.static(__dirname));
 
 const ACCESS_ID = '4wnuc99jvqcrv9hhkgpw';
 const ACCESS_SECRET = '9046b8a58f3240dc961b779bb2da13f3';
@@ -53,9 +53,9 @@ async function getAccessToken() {
   throw new Error('Failed to get access token');
 }
 
-// Route pour la page d'accueil
+// Route pour la page d'accueil (index.html à la racine)
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 // API pour lister les appareils
