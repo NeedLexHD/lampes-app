@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contrôle Lampes</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+        
+        .status {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            color: white;
+            text-align: center;
+        }
+        
+        .btn-refresh {
+            background: white;
+            color: #667eea;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            display: block;
+            margin: 20px auto;
+            transition: transform 0.2s;
+        }
+        
+        .btn-refresh:hover {
+            transform: scale(1.05);
+        }
+        
+        .devices-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 25px;
+            margin-top: 30px;
+        }
+        
+        .device-card {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease;
+        }
+        
+        .device-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .device-name {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        
+        .device-status {
+            display: inline-block;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+        
+        .device-status.online {
+            background: #4ade80;
+            color: white;
+        }
+        
+        .device-status.offline {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        button {
+            padding: 15px 20px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+        
+        .btn-on {
+            background: #4ade80;
+            color: white;
+        }
+        
+        .btn-on:hover {
+            background: #22c55e;
+        }
+        
+        .btn-off {
+            background: #64748b;
+            color: white;
+        }
+        
+        .btn-off:hover {
+            background: #475569;
+        }
+        
+        .loading {
+            text-align: center;
+            color: white;
+            font-size: 1.2em;
+        }
+        
+        .error {
+            background: #ef4444;
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>💡 Mes Lampes LSC</h1>
+        
+        <div class="status" id="status">
+            <div class="loading">Chargement des lampes...</div>
+        </div>
+        
+        <button class="btn-refresh" onclick="loadDevices()">🔄 Actualiser</button>
+        
+        <div class="devices-grid" id="devicesGrid"></div>
+    </div>
+
+    <script>
+        const API_URL = window.location.origin;
+
+        async function loadDevices() {
+            const statusEl = document.getElementById('status');
+            const gridEl = document.getElementById('devicesGrid');
+            
+            statusEl.innerHTML = '<div class="loading">Chargement des lampes...</div>';
+            gridEl.innerHTML = '';
+            
+            try {
+                const response = await fetch(`${API_URL}/api/devices`);
+                const data = await response.json();
+                
+                if (data.success && data.result && data.result.length > 0) {
+                    statusEl.innerHTML = `<div>✅ ${data.result.length} lampe(s) trouvée(s)</div>`;
+                    
+                    data.result.forEach(device => {
+                        const card = document.createElement('div');
+                        card.className = 'device-card';
+                        card.innerHTML = `
+                            <div class="device-name">${device.name}</div>
+                            <span class="device-status ${device.online ? 'online' : 'offline'}">
+                                ${device.online ? '🟢 En ligne' : '🔴 Hors ligne'}
+                            </span>
+                            <div class="controls">
+                                <button class="btn-on" onclick="turnOn('${device.id}')">
+                                    💡 Allumer
+                                </button>
+                                <button class="btn-off" onclick="turnOff('${device.id}')">
+                                    🌙 Éteindre
+                                </button>
+                            </div>
+                        `;
+                        gridEl.appendChild(card);
+                    });
+                } else {
+                    statusEl.innerHTML = `<div class="error">❌ Aucune lampe trouvée. Connecte d'abord tes lampes LSC dans l'app Smart Life, puis link ton compte dans Tuya IoT Platform.</div>`;
+                }
+            } catch (error) {
+                statusEl.innerHTML = `<div class="error">❌ Erreur: ${error.message}</div>`;
+            }
+        }
+
+        async function turnOn(deviceId) {
+            try {
+                await fetch(`${API_URL}/api/devices/${deviceId}/commands`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        commands: [{ code: 'switch_led', value: true }]
+                    })
+                });
+                setTimeout(loadDevices, 1000);
+            } catch (error) {
+                alert('Erreur: ' + error.message);
+            }
+        }
+
+        async funct
