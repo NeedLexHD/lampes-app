@@ -8,8 +8,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Servir les fichiers statiques depuis la racine du projet
+// Fichiers statiques depuis la racine du projet
 app.use(express.static(__dirname));
+
+// ------------------ CONFIG TUYA ------------------
 
 const ACCESS_ID = '4wnuc99jvqcrv9hhkgpw';
 const ACCESS_SECRET = '9046b8a58f3240dc961b779bb2da13f3';
@@ -18,16 +20,18 @@ const API_BASE = 'https://openapi.tuyaeu.com';
 let accessToken = null;
 let tokenExpiry = 0;
 
-// Fonction pour créer la signature
+// Création de signature simple (sans chemin, pour le token)
 function createSign(clientId, secret, t, accessToken = '') {
   const str = clientId + accessToken + t;
-  const hash = crypto.createHmac('sha256', secret)
+  const hash = crypto
+    .createHmac('sha256', secret)
     .update(str, 'utf8')
     .digest('hex');
   return hash.toUpperCase();
 }
 
-// Obtenir le token
+// ------------------ TOKEN TUYA ------------------
+
 async function getAccessToken() {
   if (accessToken && Date.now() < tokenExpiry) {
     return accessToken;
@@ -47,18 +51,23 @@ async function getAccessToken() {
 
   if (response.data.success) {
     accessToken = response.data.result.access_token;
-    tokenExpiry = Date.now() + (response.data.result.expire_time * 1000);
+    tokenExpiry = Date.now() + response.data.result.expire_time * 1000;
     return accessToken;
   }
+
   throw new Error('Failed to get access token');
 }
 
-// Route pour la page d'accueil (index.html à la racine)
+// ------------------ ROUTE PAGE D’ACCUEIL ------------------
+
 app.get('/', (req, res) => {
+  // IMPORTANT : index.html doit être AU MÊME NIVEAU que server.js
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// API pour lister les appareils
+// ------------------ API TUYA ------------------
+
+// Liste des appareils
 app.get('/api/devices', async (req, res) => {
   try {
     const token = await getAccessToken();
@@ -77,22 +86,22 @@ app.get('/api/devices', async (req, res) => {
 
     res.json(response.data);
   } catch (error) {
+    console.error('Erreur /api/devices :', error.message);
     res.status(500).json({ error: error.message });
   }
 });
 
-// API pour contrôler un appareil
+// Commandes vers un appareil
 app.post('/api/devices/:deviceId/commands', async (req, res) => {
   try {
     const { deviceId } = req.params;
     const { commands } = req.body;
+
     const token = await getAccessToken();
     const t = Date.now().toString();
 
     const body = JSON.stringify({ commands });
-    const contentHash = crypto.createHash('sha256')
-      .update(body)
-      .digest('hex');
+    const contentHash = crypto.createHash('sha256').update(body).digest('hex');
 
     const stringToSign = [
       ACCESS_ID,
@@ -104,7 +113,8 @@ app.post('/api/devices/:deviceId/commands', async (req, res) => {
       `/v1.0/devices/${deviceId}/commands`
     ].join('');
 
-    const sign = crypto.createHmac('sha256', ACCESS_SECRET)
+    const sign = crypto
+      .createHmac('sha256', ACCESS_SECRET)
       .update(stringToSign, 'utf8')
       .digest('hex')
       .toUpperCase();
@@ -119,6 +129,7 @@ app.post('/api/devices/:deviceId/commands', async (req, res) => {
           'sign': sign,
           'sign_method': 'HMAC-SHA256',
           't': t,
+          'sign_method': 'HMAC-SHA256',
           'Content-Type': 'application/json'
         }
       }
@@ -126,9 +137,12 @@ app.post('/api/devices/:deviceId/commands', async (req, res) => {
 
     res.json(response.data);
   } catch (error) {
+    console.error('Erreur /api/devices/:deviceId/commands :', error.message);
     res.status(500).json({ error: error.message });
   }
 });
+
+// ------------------ LANCEMENT SERVEUR ------------------
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
